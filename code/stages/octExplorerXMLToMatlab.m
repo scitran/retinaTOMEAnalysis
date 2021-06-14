@@ -24,6 +24,55 @@ function octExplorerXMLToMatlab(dataRootDir, varargin)
 % (horizontal and vertical) dimensions are in units of degrees of visual
 % angle; our macular acquisitions were 30° wide.
 
+%{
+% Assuming retinaTOMEAnalysis is on your path
+datadir = fullfile(ophRootPath,'iowa','zeissimg');
+octExplorerXMLToMatlab(datadir)
+%}
+%{
+foo = load('P73304206_Macular Cube 512x128_8-19-2020_13-28-54_OS_sn211046_cube_raw_Surfaces_Retina-JEI-Final');
+sz = size(foo.mask);
+for ii=1:sz(2)
+  imagesc(double(squeeze(foo.mask(:,ii,:)))); drawnow; pause(0.1); 
+end
+%}
+%{
+for ii=1:sz(1)
+  imagesc(double(squeeze(foo.mask(ii,:,:)))); drawnow; pause(0.1); 
+end
+%}
+%{
+for ii=1:10:sz(3)
+  imagesc(double(squeeze(foo.mask(:,:,ii)))); drawnow; pause(0.1); 
+end
+%}
+%{
+% Show an isosurfce surface
+% Below I set the 0 values to NaN.  Just testing now.
+
+sz = size(foo.mask);
+mk = double(foo.mask);
+[X,Y,Z] = meshgrid(1:sz(2),1:sz(1),1:sz(3));
+mrvNewGraphWin;
+p = patch(isosurface(X,Y,Z,mk,1.2));
+N = isonormals(X,Y,Z,mk,p);
+
+% Trying to get into FW.  see t_meshFibersOBJ.m for a successful example
+% Not sure why this doesn't work on the flywheel side yet.
+FV.vertices = p.Vertices;
+FV.faces = p.Faces;
+OBJ = objFVN(FV,N);
+disp(FV)
+disp(OBJ)
+fname = fullfile(vistaRootPath,'local','OCT.obj'); 
+objWrite(OBJ,fname);
+
+p.FaceColor = 'blue'; p.EdgeColor = 'none';
+daspect([1 1 1]); view(3); axis tight; camlight; lighting gouraud
+%}
+%{
+  foo.mask(foo.mask==0) = NaN;
+%}
 
 
 %% Parse vargin for options passed here
