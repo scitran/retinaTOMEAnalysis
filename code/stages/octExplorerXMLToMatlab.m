@@ -1,43 +1,68 @@
-function octExplorerXMLToMatlab(dataRootDir, varargin)
+function outputFile = octExplorerXMLToMatlab(dataRootDir, varargin)
+% Converts Explorer XML output to Matlab
+%
+%  Synopsis
+%     outputFile = octExplorerXMLToMatlab(dataRootDir, varargin)
+%
+% Inputs
+%    dataRootDir - Directory containing the XML file
+%
+% Optional key/val pairs
+%    infileSuffix
+%    outfileSuffix
+%    subjectsToProcess
+%
+% Outputs
+%    outputFile - Filename written to disk
+%
+% Description
+%  Geoff Aguirre collected OCT data using a Heidelberg Spectralis system. A
+%  horizontal and vertical macular scan was collected for the left and right
+%  eye for each subject. The data were exported from the OCT system and
+%  saved in '.E2E' format (which is proprietary to Heidelberg) and in '.vol'
+%  format.
 % 
-% We have collected OCT data using a Heidelberg Spectralis system. A
-% horizontal and vertical macular scan was collected for the left and right
-% eye for each subject. The data were exported from the OCT system and
-% saved in '.E2E' format (which is proprietary to Heidelberg) and in '.vol'
-% format.
+%  The '.vol' files were copied to a separate location and then processed by
+%  an operator (Kara Cloud) using OCT Explorer v5.0 (on a Macintosh). This
+%  analysis yields (for each '.vol' file) a file named
+%  '_Surfaces_Retina-JEI-Final.xml'.
 % 
-% The '.vol' files were copied to a separate location and then processed by
-% an operator (Kara Cloud) using OCT Explorer v5.0 (on a Macintosh). This
-% analysis yields (for each '.vol' file) a file named
-% '_Surfaces_Retina-JEI-Final.xml'.
+%  At Stanford, we also ran OCT Explorer v5.0 on a Mac and wrote out the
+%  files.  But the user interactions was surely different.
+%
+%  The routine 'xmlConversionWrapper.m' converts the '.xml' file to a '.mat'
+%  file. The wrapper makes use of the routine 'xml2volmask.m' which is
+%  present within 'octSupport', and was written by Jin Gahm from the LONI
+%  group, USC.
 % 
-% The routine 'xmlConversionWrapper.m' is used to convert the '.xml' file
-% to a '.mat' file. The wrapper makes use of the routine 'xml2volmask.m'
-% which is present within 'octSupport', and was written by Jin Gahm from
-% the LONI group, USC.
-% 
-% The resulting '.mat' file has the dimensions 1536x97x496, corresponding
-% to the vertical, axial (depth) and horizontal diimensions. Each voxel is
-% given an integer value from 0 - 11, corresponding to a retinal layer
-% (with a value of zero indicating that the voxel does not reside within
-% the retina). The depth dimension is in units of mm, while the transverse
-% (horizontal and vertical) dimensions are in units of degrees of visual
-% angle; our macular acquisitions were 30° wide.
+%  The resulting '.mat' file has the dimensions 1536x97x496, corresponding
+%  to the vertical, axial (depth) and horizontal diimensions. Each voxel is
+%  given an integer value from 0 - 11, corresponding to a retinal layer
+%  (with a value of zero indicating that the voxel does not reside within
+%  the retina). The depth dimension is in units of mm, while the transverse
+%  (horizontal and vertical) dimensions are in units of degrees of visual
+%  angle; our macular acquisitions were 30° wide.
+%
+% See also
+%    ophvlfeat (repository), ophthalmology (directory in scitranApps)
+%
 
 %{
-% Assuming retinaTOMEAnalysis is on your path
-datadir = fullfile(ophRootPath,'iowa','zeissimg');
-octExplorerXMLToMatlab(datadir)
+% Assuming retinaTOMEAnalysis and ophthalmology are on your path
+% Calls this function to convert the Explorer XML outputs to mat-file
+  datadir = fullfile(ophRootPath,'iowa','zeissimg');
+  octExplorerXMLToMatlab(datadir)
 %}
 %{
 foo = load('P73304206_Macular Cube 512x128_8-19-2020_13-28-54_OS_sn211046_cube_raw_Surfaces_Retina-JEI-Final');
 sz = size(foo.mask);
-for ii=1:sz(2)
+mrvNewGraphWin;
+for ii=1:3:sz(2)
   imagesc(double(squeeze(foo.mask(:,ii,:)))); drawnow; pause(0.1); 
 end
 %}
 %{
-for ii=1:sz(1)
+for ii=1:2:sz(1)
   imagesc(double(squeeze(foo.mask(ii,:,:)))); drawnow; pause(0.1); 
 end
 %}
@@ -47,28 +72,28 @@ for ii=1:10:sz(3)
 end
 %}
 %{
-% Show an isosurfce surface
+% Show an isosurface surface
 % Below I set the 0 values to NaN.  Just testing now.
+  mask = foo.mask;
+  sz = size(mask);
+  mask = double(mask);
+  [X,Y,Z] = meshgrid(1:sz(2),1:sz(1),1:sz(3));
+  mrvNewGraphWin;
+  p = patch(isosurface(X,Y,Z,mask,1.2));
+  N = isonormals(X,Y,Z,mask,p);
 
-sz = size(foo.mask);
-mk = double(foo.mask);
-[X,Y,Z] = meshgrid(1:sz(2),1:sz(1),1:sz(3));
-mrvNewGraphWin;
-p = patch(isosurface(X,Y,Z,mk,1.2));
-N = isonormals(X,Y,Z,mk,p);
+  % Trying to get into FW.  see t_meshFibersOBJ.m for a successful example
+  % Not sure why this doesn't work on the Flywheel side yet.
+  FV.vertices = p.Vertices;
+  FV.faces    = p.Faces;
+  OBJ = objFVN(FV,N);
+  disp(FV)
+  disp(OBJ)
+  fname = fullfile(vistaRootPath,'local','OCT.obj'); 
+  objWrite(OBJ,fname);
 
-% Trying to get into FW.  see t_meshFibersOBJ.m for a successful example
-% Not sure why this doesn't work on the flywheel side yet.
-FV.vertices = p.Vertices;
-FV.faces = p.Faces;
-OBJ = objFVN(FV,N);
-disp(FV)
-disp(OBJ)
-fname = fullfile(vistaRootPath,'local','OCT.obj'); 
-objWrite(OBJ,fname);
-
-p.FaceColor = 'blue'; p.EdgeColor = 'none';
-daspect([1 1 1]); view(3); axis tight; camlight; lighting gouraud
+  p.FaceColor = 'yellow'; p.EdgeColor = 'none';
+  daspect([1 1 1]); view(3); axis tight; camlight; lighting gouraud
 %}
 %{
   foo.mask(foo.mask==0) = NaN;
@@ -76,6 +101,7 @@ daspect([1 1 1]); view(3); axis tight; camlight; lighting gouraud
 
 
 %% Parse vargin for options passed here
+
 p = inputParser;
 
 % Required
@@ -87,12 +113,9 @@ p.addParameter('outFileSuffix','_Surfaces_Retina-JEI-Final.mat',@ischar);
 p.addParameter('subjectsToProcess',{},@(x)(isempty(x) || iscell(x)));
 
 
-%% Parse and check the parameters
 p.parse(dataRootDir, varargin{:});
 
-
-
-% Convert OCT seg XML to .mat volumes
+%% Convert OCT seg XML to .mat volumes
 
 
 % Obtain the paths to all of the pupil data files within the specified
